@@ -35,11 +35,14 @@ chromadb==0.4.21
 redis==5.0.1
 
 # ML/Vision
-ultralytics==8.1.0
-torch==2.1.0
-torchvision==0.16.0
-pillow==10.1.0
-opencv-python==4.8.1.78
+# Примечание: Для Python 3.13 требуется ultralytics 8.3.0+ и torch 2.6.0+
+# Установите torch и torchvision отдельно через PyTorch index:
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+ultralytics>=8.3.0
+# torch>=2.6.0  # Установите через PyTorch index
+# torchvision>=0.21.0  # Установите через PyTorch index
+pillow>=10.1.0
+opencv-python>=4.8.1
 
 # RAG & Embeddings
 sentence-transformers==2.2.2
@@ -59,4 +62,4 @@ loguru==0.7.2
 boto3==1.29.7
 
 # Опционально (для локального запуска)
-ollama==0.1.25
+# ollama>=0.1.0  # Раскомментируйте если нужен Ollama
