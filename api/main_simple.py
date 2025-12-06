@@ -202,6 +202,11 @@ async def upload_gcode(
             "anomalies": result.get("anomalies", []),
             "recommendations": result.get("recommendations", [])
         }
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=400,
+            detail="Файл должен быть текстовым G-code файлом (UTF-8)"
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
