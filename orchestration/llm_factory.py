@@ -16,12 +16,19 @@ def get_llm():
     
     if provider == "openrouter":
         # OpenRouter использует OpenAI-совместимый API
+        if not settings.openrouter_api_key:
+            raise ValueError("OPENROUTER_API_KEY не установлен в .env файле")
+        
         return ChatOpenAI(
-            model="anthropic/claude-3.5-sonnet",
+            model="anthropic/claude-3.5-sonnet",  # Модель Claude через OpenRouter
             base_url=settings.openrouter_base_url,
             api_key=settings.openrouter_api_key,
             temperature=0.7,
-            max_tokens=2048
+            max_tokens=2048,
+            default_headers={
+                "HTTP-Referer": "https://github.com/your-repo",  # Опционально
+                "X-Title": "3D Printer AI Assistant"  # Опционально
+            }
         )
     elif provider == "together":
         # Together.ai также использует OpenAI-совместимый API
