@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_port: int = 8000
     
+    # Agent Mode
+    use_multi_model_agent: bool = False  # True = MultiModel, False = Supervisor-based
+    
     class Config:
         env_file = ".env"
         case_sensitive = False
