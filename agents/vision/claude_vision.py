@@ -47,7 +47,7 @@ class ClaudeVisionAnalyzer:
             
             return {
                 "analysis": message.content[0].text,
-                "model": "claude-3-opus",
+                "model": "claude-3-5-sonnet-20241022",
                 "success": True
             }
         except Exception as e:
