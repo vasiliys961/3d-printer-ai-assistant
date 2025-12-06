@@ -27,6 +27,8 @@ wheels/
 # Environment
 .env
 .env.local
+.config/
+.neon
 
 # IDE
 .vscode/
