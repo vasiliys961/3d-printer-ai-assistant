@@ -5,8 +5,21 @@ from typing import Literal
 
 class Settings(BaseSettings):
     # API Keys
-    anthropic_api_key: str
-    telegram_bot_token: str
+    anthropic_api_key: str = ""
+    telegram_bot_token: str = ""
+    
+    # OpenRouter
+    openrouter_api_key: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    
+    # Together.ai
+    together_api_key: str = ""
+    
+    # Ollama
+    ollama_base_url: str = "http://localhost:11434"
+    
+    # LLM Provider
+    llm_provider: str = "anthropic"  # "anthropic", "openrouter", "together", "ollama"
     
     # Database
     postgres_host: str = "localhost"

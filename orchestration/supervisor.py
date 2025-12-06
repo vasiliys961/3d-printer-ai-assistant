@@ -12,11 +12,11 @@ from datetime import datetime
 import time
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
 
 from .state import AgentState, UserContext, ToolResult
-from .config import SYSTEM_PROMPT, LLM_CONFIG
+from .config import SYSTEM_PROMPT
+from .llm_factory import get_llm
 from .tools import (
     GcodeAnalyzer,
     RAGEngine,
@@ -27,7 +27,7 @@ from .tools import (
 
 class Supervisor:
     def __init__(self):
-        self.llm = ChatAnthropic(**LLM_CONFIG)
+        self.llm = get_llm()  # Используем фабрику для выбора провайдера
         
         # Инициализируем все tools (объединяем все списки в один плоский список)
         self.tools = (
