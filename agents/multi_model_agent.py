@@ -123,9 +123,14 @@ class MultiModelAgent:
         
         # ===== ШАГ 2: ПОИСК В KB =====
         print("2️⃣ RAG: Ищу в базе знаний...")
-        kb_results = await self.rag.search(user_message, top_k=3)
-        context = kb_results.augmented_context if hasattr(kb_results, 'augmented_context') else ""
-        print(f"   → Найдено {kb_results.total_results if hasattr(kb_results, 'total_results') else 0} релевантных документов")
+        try:
+            kb_results = await self.rag.search(user_message, top_k=3)
+            context = kb_results.augmented_context if hasattr(kb_results, 'augmented_context') else ""
+            total_results = kb_results.total_results if hasattr(kb_results, 'total_results') else 0
+            print(f"   → Найдено {total_results} релевантных документов")
+        except Exception as e:
+            print(f"   ⚠️ Ошибка RAG: {e}")
+            context = ""
         
         # ===== ШАГ 3: КОНСУЛЬТАНТ =====
         print("3️⃣ Consultant: Готовлю подробный ответ...")
