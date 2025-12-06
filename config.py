@@ -63,3 +63,9 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+# API константы
+API_TITLE = "3D Printer AI Assistant API"
+API_VERSION = "1.0.0"
+API_PORT = settings.api_port
+DEBUG = settings.debug
+
