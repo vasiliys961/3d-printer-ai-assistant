@@ -4,9 +4,17 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from config import settings
 
+# Используем DATABASE_URL если указан, иначе собираем из отдельных параметров
+if settings.database_url:
+    database_url = settings.database_url
+else:
+    database_url = (
+        f"postgresql://{settings.postgres_user}:{settings.postgres_password}@"
+        f"{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}"
+    )
+
 engine = create_engine(
-    f"postgresql://{settings.postgres_user}:{settings.postgres_password}@"
-    f"{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}",
+    database_url,
     pool_pre_ping=True,
     echo=settings.debug
 )
