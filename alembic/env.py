@@ -15,10 +15,17 @@ from config import settings
 # this is the Alembic Config object
 config = context.config
 
+# Используем DATABASE_URL если указан, иначе собираем из отдельных параметров
+if settings.database_url:
+    database_url = settings.database_url
+else:
+    database_url = (
+        f"postgresql://{settings.postgres_user}:{settings.postgres_password}@"
+        f"{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}"
+    )
+
 # Устанавливаем URL из настроек
-config.set_main_option("sqlalchemy.url", 
-    f"postgresql://{settings.postgres_user}:{settings.postgres_password}@"
-    f"{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}")
+config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:

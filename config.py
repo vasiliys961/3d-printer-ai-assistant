@@ -53,10 +53,12 @@ class Settings(BaseSettings):
     # Application
     debug: bool = True
     log_level: str = "INFO"
+    api_port: int = 8000
     
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"  # Игнорировать дополнительные поля из .env
 
 
 settings = Settings()
