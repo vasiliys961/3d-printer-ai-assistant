@@ -1,5 +1,5 @@
 """Расчет метрик печати"""
-from typing import List
+from typing import List, Dict
 from agents.code_interpreter.parser import ParsedLine, PrintMetrics
 import math
 

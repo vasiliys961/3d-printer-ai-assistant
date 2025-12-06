@@ -9,6 +9,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session as DBSession
 import asyncio
 
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from config import API_TITLE, API_VERSION, API_PORT, DEBUG
 from database import get_db, SessionLocal, User, Session as SessionModel
 from agent import Agent
