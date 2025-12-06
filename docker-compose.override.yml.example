@@ -1,0 +1,16 @@
+# Пример файла docker-compose.override.yml для локальной разработки
+# Скопируйте в docker-compose.override.yml и настройте под себя
+
+version: '3.8'
+
+services:
+  app:
+    # Для разработки можно монтировать код
+    volumes:
+      - .:/app
+      - /app/venv  # Исключаем venv из монтирования
+    # Переопределяем команду для разработки
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      DEBUG: "True"
+
