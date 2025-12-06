@@ -90,11 +90,38 @@ class RAGEngine:
         if json_files:
             for json_file in json_files:
                 try:
-                    loader = JSONLoader(
-                        str(json_file),
-                        jq_schema="."
-                    )
-                    docs = loader.load()
+                    # Пробуем разные схемы для JSON
+                    try:
+                        # Если это массив документов
+                        loader = JSONLoader(
+                            str(json_file),
+                            jq_schema=".[]"
+                        )
+                        docs = loader.load()
+                    except:
+                        # Если это объект с массивом documents
+                        try:
+                            loader = JSONLoader(
+                                str(json_file),
+                                jq_schema=".documents[]"
+                            )
+                            docs = loader.load()
+                        except:
+                            # Если это простой объект
+                            loader = JSONLoader(
+                                str(json_file),
+                                jq_schema="."
+                            )
+                            docs = loader.load()
+                    
+                    # Обогащаем метаданные с информацией из JSON
+                    for doc in docs:
+                        # Если в метаданных есть content, используем его как page_content
+                        if "content" in doc.metadata:
+                            doc.page_content = doc.metadata["content"]
+                        # Сохраняем source файл
+                        doc.metadata["source"] = str(json_file.name)
+                    
                     documents.extend(docs)
                 except Exception as e:
                     print(f"Error loading {json_file}: {e}")

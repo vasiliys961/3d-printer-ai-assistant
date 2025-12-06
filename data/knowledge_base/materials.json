@@ -1,0 +1,31 @@
+[
+  {
+    "id": 1,
+    "content": "PLA: 190-210°C soplo, 50-60°C cama. Requiere ventilador activo 100%.",
+    "title": "PLA Material Profile",
+    "category": "materials",
+    "language": "es"
+  },
+  {
+    "id": 2,
+    "content": "PETG: 230-250°C soplo, 70-80°C cama. No necesita tanta refrigeración (30-50%).",
+    "title": "PETG Material Profile",
+    "category": "materials",
+    "language": "es"
+  },
+  {
+    "id": 3,
+    "content": "Warping (deformación): Aumentar temperatura cama, usar brim, aplicar cola.",
+    "title": "Warping Problem Solution",
+    "category": "troubleshooting",
+    "language": "es"
+  },
+  {
+    "id": 4,
+    "content": "Spaghetti monster: Verificar nivelación de cama y adhesión de primera capa.",
+    "title": "Spaghetti Monster Problem Solution",
+    "category": "troubleshooting",
+    "language": "es"
+  }
+]
+
