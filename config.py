@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     llm_provider: str = "anthropic"  # "anthropic", "openrouter", "together", "ollama"
     
     # Database
+    # Если указан DATABASE_URL, он будет использован вместо отдельных параметров
+    database_url: str = ""
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_db: str = "printer_ai"
