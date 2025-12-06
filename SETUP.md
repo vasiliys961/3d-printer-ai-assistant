@@ -7,7 +7,8 @@
 2. API ключи (см. ниже)
 
 ### Для локальной установки
-1. Python 3.10 или выше
+1. Python 3.10-3.13 (рекомендуется 3.11 или 3.12 для лучшей совместимости)
+   - **Примечание**: Для Python 3.13 требуется установка torch через PyTorch index
 2. PostgreSQL 14+
 3. Redis (опционально, для кэширования)
 4. API ключи:
@@ -52,6 +53,14 @@ source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate  # Windows
 
 # Установите зависимости
+# Для Python 3.13 используйте скрипт:
+./requirements-setup.sh
+
+# Или вручную:
+# 1. Сначала установите PyTorch (для Python 3.13)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# 2. Затем остальные зависимости
 pip install -r requirements.txt
 ```
 
