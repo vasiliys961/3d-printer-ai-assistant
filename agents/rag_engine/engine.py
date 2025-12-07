@@ -25,6 +25,10 @@ import os
 from agents.rag_engine.embedder import embedder
 from agents.rag_engine.reranker import reranker
 from config import settings
+from utils.logger import logger
+from utils.metrics import metrics_collector
+from utils.cache import cache
+import time
 
 
 @dataclass
@@ -121,10 +125,18 @@ class RAGEngine:
                             doc.page_content = doc.metadata["content"]
                         # Сохраняем source файл
                         doc.metadata["source"] = str(json_file.name)
+                        # Сохраняем source_url если есть
+                        if "source_url" in doc.metadata:
+                            doc.metadata["source_url"] = doc.metadata["source_url"]
+                        # Сохраняем другие важные поля
+                        if "title" in doc.metadata:
+                            doc.metadata["title"] = doc.metadata["title"]
+                        if "category" in doc.metadata:
+                            doc.metadata["category"] = doc.metadata["category"]
                     
                     documents.extend(docs)
                 except Exception as e:
-                    print(f"Error loading {json_file}: {e}")
+                    logger.error(f"Error loading {json_file}: {e}", exc_info=True)
         
         # Текстовые файлы
         text_files = list(kb_path_obj.rglob("*.txt")) + list(kb_path_obj.rglob("*.md"))
@@ -135,10 +147,10 @@ class RAGEngine:
                     docs = loader.load()
                     documents.extend(docs)
                 except Exception as e:
-                    print(f"Error loading {text_file}: {e}")
+                    logger.error(f"Error loading {text_file}: {e}", exc_info=True)
         
         if not documents:
-            print(f"No documents found in {kb_path}")
+            logger.warning(f"No documents found in {kb_path}")
             return
         
         # Разбиваем на чанки с Parent Document strategy
@@ -194,12 +206,34 @@ class RAGEngine:
                 metadatas=batch_metadatas
             )
         
-        print(f"Ingested {len(all_chunks)} chunks from {len(documents)} documents")
+        logger.info(f"Ingested {len(all_chunks)} chunks from {len(documents)} documents")
+        
+        # Очищаем кэш RAG поиска при обновлении базы знаний
+        cache.clear_pattern("rag_search:*")
+        logger.info("RAG search cache cleared after knowledge base update")
     
     async def search(self, query: str, top_k: int = 5) -> RAGResult:
         """
         Поиск релевантных документов с семантическим поиском и BM25 re-ranking.
+        Использует кэширование через Redis для ускорения повторных запросов.
         """
+        start_time = time.time()
+        
+        # Проверяем кэш
+        cache_key = cache._make_key("rag_search", f"{query}:{top_k}")
+        cached_result = cache.get(cache_key)
+        if cached_result:
+            logger.debug(f"RAG search cache hit for query: {query[:50]}...")
+            # Восстанавливаем RAGResult из кэша
+            return RAGResult(
+                question=cached_result["question"],
+                relevant_chunks=cached_result["relevant_chunks"],
+                sources=cached_result["sources"],
+                relevance_scores=cached_result["relevance_scores"],
+                augmented_context=cached_result["augmented_context"],
+                total_results=cached_result["total_results"]
+            )
+        
         # 1. Семантический поиск через ChromaDB
         query_embedding = embedder.embed_query(query)
         
@@ -251,7 +285,10 @@ class RAGEngine:
             source_info = {
                 "source": metadata.get("source", "unknown"),
                 "chunk_index": metadata.get("chunk_index", 0),
-                "parent_id": metadata.get("parent_id", "")
+                "parent_id": metadata.get("parent_id", ""),
+                "source_url": metadata.get("source_url", ""),
+                "title": metadata.get("title", ""),
+                "category": metadata.get("category", "")
             }
             
             # Если есть parent document, добавляем его информацию
@@ -259,6 +296,11 @@ class RAGEngine:
             if parent_id and parent_id in self.parent_documents:
                 parent = self.parent_documents[parent_id]
                 source_info["parent_source"] = parent["source"]
+                # Если source_url не найден в chunk, берем из parent
+                if not source_info.get("source_url") and "source_url" in parent.get("metadata", {}):
+                    source_info["source_url"] = parent["metadata"]["source_url"]
+                if not source_info.get("title") and "title" in parent.get("metadata", {}):
+                    source_info["title"] = parent["metadata"]["title"]
             
             sources.append(source_info)
         
@@ -270,7 +312,11 @@ class RAGEngine:
         
         augmented_context = "\n---\n".join(context_parts)
         
-        return RAGResult(
+        execution_time = (time.time() - start_time) * 1000
+        logger.debug(f"RAG search completed: {execution_time:.2f}ms, results: {len(relevant_chunks)}")
+        
+        # Создаем результат
+        result = RAGResult(
             question=query,
             relevant_chunks=relevant_chunks,
             sources=sources,
@@ -278,6 +324,27 @@ class RAGEngine:
             augmented_context=augmented_context,
             total_results=len(relevant_chunks)
         )
+        
+        # Кэшируем результат (TTL 1 час)
+        cache.set(cache_key, {
+            "question": result.question,
+            "relevant_chunks": result.relevant_chunks,
+            "sources": result.sources,
+            "relevance_scores": result.relevance_scores,
+            "augmented_context": result.augmented_context,
+            "total_results": result.total_results
+        }, ttl=3600)
+        
+        # Записываем метрики
+        try:
+            import contextvars
+            request_id = getattr(contextvars, 'request_id', None)
+            if request_id:
+                metrics_collector.record_rag_search(request_id, len(relevant_chunks))
+        except:
+            pass
+        
+        return result
     
     def get_parent_document(self, chunk_id: str) -> Optional[Dict]:
         """Получить parent document для chunk"""

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "calib_ret_001",
+    "title": "Retraction Test Calibration Guide",
+    "category": "calibration",
+    "calibration": "retraction_test",
+    "content": "Пошаговая инструкция по калибровке retraction для уменьшения stringing.\n\nШаг 1: Подготовка модели\n1. Скачайте stringing test модель (две башни с зазором)\n2. Или создайте простую модель с двумя вертикальными элементами\n\nШаг 2: Базовые настройки\n1. Температура: оптимальная для материала (из temperature tower)\n2. Скорость печати: стандартная для материала\n3. Охлаждение: стандартное для материала\n\nШаг 3: Тестирование retraction distance\n1. Начните с базовых значений:\n   - Bowden: 5 мм\n   - Direct Drive: 1 мм\n2. Печатайте тест, изменяя только retraction distance\n3. Проверяйте количество stringing\n4. Увеличивайте/уменьшайте distance пока не найдете оптимальное значение\n\nШаг 4: Тестирование retraction speed\n1. С оптимальным distance, тестируйте speed\n2. Начните с 40-50 мм/с\n3. Увеличивайте до 60-70 мм/с если нужно\n4. Проверяйте stringing\n\nШаг 5: Дополнительные настройки\n1. Wipe distance: 0.2-0.5 мм\n2. Coasting: включите если stringing все еще есть\n3. Z-hop: 0.2-0.5 мм (может помочь)\n\nПроверка:\n- Между башнями не должно быть видимых нитей\n- Качество поверхности должно оставаться хорошим\n- Не должно быть пропусков экструзии",
+    "tags": [
+      "calibration",
+      "retraction",
+      "stringing",
+      "intermediate"
+    ],
+    "language": "ru",
+    "source_url": "https://3dtoday.ru/wiki/calibration/retraction_test/"
+  }
+]

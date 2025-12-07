@@ -1,0 +1,17 @@
+[
+  {
+    "id": "cura_001",
+    "title": "Cura Slicer Settings Guide",
+    "category": "slicer_settings",
+    "slicer": "Cura",
+    "content": "Рекомендуемые настройки Cura для различных материалов и принтеров.\n\nБазовые настройки для PLA:\n- Layer Height: 0.2 мм (стандарт), 0.12 мм (качество), 0.3 мм (быстро)\n- Line Width: 0.4 мм (для сопла 0.4 мм)\n- Wall Thickness: 0.8 мм (2 линии)\n- Top/Bottom Thickness: 0.8 мм (4 слоя при 0.2 мм)\n- Infill: 20% (стандарт), 50-100% (прочность)\n- Print Speed: 50 мм/с\n- Travel Speed: 150 мм/с\n- Initial Layer Speed: 20 мм/с\n- Retraction Distance: 5 мм (Bowden), 1 мм (Direct Drive)\n- Retraction Speed: 45 мм/с\n- Temperature: 210°C\n- Bed Temperature: 60°C\n\nБазовые настройки для PETG:\n- Layer Height: 0.2 мм\n- Print Speed: 40 мм/с\n- Initial Layer Speed: 20 мм/с\n- Retraction Distance: 6 мм (Bowden), 2 мм (Direct Drive)\n- Retraction Speed: 40 мм/с\n- Temperature: 240°C\n- Bed Temperature: 80°C\n- Fan Speed: 30-50%\n\nБазовые настройки для ABS:\n- Layer Height: 0.2-0.3 мм\n- Print Speed: 50 мм/с\n- Initial Layer Speed: 25 мм/с\n- Retraction Distance: 5 мм\n- Temperature: 250°C\n- Bed Temperature: 100°C\n- Fan Speed: 0-10%\n- Enclosure Temperature: 40-50°C\n\nВажные настройки:\n- Support: Tree (для сложных моделей) или Normal\n- Build Plate Adhesion: Brim (5 мм) или Raft\n- Z-hop: 0.2-0.5 мм (для уменьшения stringing)\n- Coasting: включить для уменьшения stringing\n- Wipe: 0.2-0.5 мм\n\nСоветы:\n- Используйте профили принтера от производителя\n- Настройте Material Profiles для каждого материала\n- Сохраняйте кастомные профили для будущего использования",
+    "tags": [
+      "slicer",
+      "cura",
+      "settings",
+      "beginner"
+    ],
+    "language": "ru",
+    "source_url": "https://3dtoday.ru/wiki/slicers/cura/"
+  }
+]

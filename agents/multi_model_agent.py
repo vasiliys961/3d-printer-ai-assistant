@@ -18,9 +18,14 @@ from agents.code_interpreter.tool import CodeInterpreterTool
 from sqlalchemy.orm import Session as DBSession
 from data.postgres.models import Message
 from langchain_core.messages import HumanMessage, SystemMessage
+from utils.logger import logger
+from utils.metrics import metrics_collector
+from utils.exceptions import LLMError, RAGError, SessionNotFoundError
+from utils.retry import retry_async
 import asyncio
 import json
 import re
+import time
 
 
 @dataclass
@@ -77,6 +82,47 @@ class MultiModelAgent:
         self.rag = RAGEngine()
         self.gcode_analyzer = CodeInterpreterTool()
     
+    async def _call_llm_with_retry(self, prompt: str, agent_name: str = "LLM") -> str:
+        """Обертка для LLM вызовов с retry логикой"""
+        start_time = time.time()
+        
+        try:
+            response = await retry_async(
+                lambda: self.llm.ainvoke([HumanMessage(content=prompt)]),
+                max_attempts=3,
+                initial_delay=1.0,
+                exceptions=(Exception,),
+                on_retry=lambda attempt, e, delay: logger.warning(
+                    f"LLM call ({agent_name}) попытка {attempt} не удалась: {e}"
+                )
+            )
+        except Exception as e:
+            logger.error(f"Ошибка вызова LLM ({agent_name}): {e}", exc_info=True)
+            raise LLMError(f"Не удалось получить ответ от LLM ({agent_name}): {e}") from e
+        
+        execution_time = (time.time() - start_time) * 1000
+        content = response.content if hasattr(response, 'content') else str(response)
+        
+        # Пытаемся извлечь количество токенов
+        tokens_used = 0
+        request_id = getattr(self, '_current_request_id', None)
+        if hasattr(response, 'response_metadata'):
+            usage = response.response_metadata.get('usage', {})
+            tokens_used = usage.get('total_tokens', 0) or usage.get('input_tokens', 0) + usage.get('output_tokens', 0)
+        
+        logger.debug(f"LLM call ({agent_name}): {execution_time:.2f}ms, tokens: {tokens_used}")
+        
+        # Записываем метрики
+        try:
+            import contextvars
+            request_id = getattr(contextvars, 'request_id', None)
+            if request_id:
+                metrics_collector.record_llm_call(request_id, tokens_used)
+        except:
+            pass
+        
+        return content
+    
     async def call_analyzer(self, user_message: str) -> AnalyzerOutput:
         """
         Агент-Аналитик: понимает запрос, разбивает на подзадачи, формирует ключевые слова.
@@ -120,8 +166,7 @@ class MultiModelAgent:
 - Формируй 3-10 конкретных подзадач
 - Ключевые слова должны быть релевантны для поиска в базе знаний"""
         
-        response = await self.llm.ainvoke([HumanMessage(content=prompt)])
-        content = response.content if hasattr(response, 'content') else str(response)
+        content = await self._call_llm_with_retry(prompt, "Consultant")
         
         # Парсим JSON ответ
         try:
@@ -137,7 +182,7 @@ class MultiModelAgent:
                     missing_info=data.get("missing_info", [])
                 )
         except (json.JSONDecodeError, KeyError) as e:
-            print(f"⚠️ Ошибка парсинга ответа Аналитика: {e}")
+            logger.warning(f"Ошибка парсинга ответа Аналитика: {e}", exc_info=True)
         
         # Fallback: создаем базовый вывод
         return AnalyzerOutput(
@@ -250,8 +295,7 @@ class MultiModelAgent:
 - НЕ описывай поведение оборудования, если это не следует из контекста
 - Если запрос вне домена — честно скажи об этом"""
         
-        response = await self.llm.ainvoke([HumanMessage(content=prompt)])
-        content = response.content if hasattr(response, 'content') else str(response)
+        content = await self._call_llm_with_retry(prompt, "Consultant")
         
         # Парсим структурированный ответ
         return self._parse_consultant_output(content)
@@ -376,8 +420,7 @@ class MultiModelAgent:
 - НЕ меняй технический смысл
 - Используй простые аналогии и примеры"""
         
-        response = await self.llm.ainvoke([HumanMessage(content=prompt)])
-        content = response.content if hasattr(response, 'content') else str(response)
+        content = await self._call_llm_with_retry(prompt, "Consultant")
         
         # Парсим структурированный ответ
         return self._parse_editor_output(content)
@@ -468,8 +511,7 @@ class MultiModelAgent:
 - issues: что можно улучшить
 - risksOrHallucinations: возможные галлюцинации, выдуманные параметры, опасные советы"""
         
-        response_obj = await self.llm.ainvoke([HumanMessage(content=prompt)])
-        content = response_obj.content if hasattr(response_obj, 'content') else str(response_obj)
+        content = await self._call_llm_with_retry(prompt, "QAChecker")
         
         # Парсим JSON из ответа
         try:
@@ -487,7 +529,7 @@ class MultiModelAgent:
                     })
                 )
         except (json.JSONDecodeError, KeyError) as e:
-            print(f"⚠️ Ошибка парсинга ответа Проверяющего: {e}")
+            logger.warning(f"Ошибка парсинга ответа Проверяющего: {e}", exc_info=True)
         
         # Если не удалось распарсить, возвращаем дефолтные значения
         return QACheckerOutput(
@@ -521,7 +563,7 @@ class MultiModelAgent:
             
             return history
         except Exception as e:
-            print(f"⚠️ Ошибка загрузки истории: {e}")
+            logger.error(f"Ошибка загрузки истории: {e}", exc_info=True)
             return []
     
     def _extract_user_context_from_history(self, history: List[Dict[str, str]]) -> Dict[str, Any]:
@@ -631,7 +673,7 @@ class MultiModelAgent:
         Пользователю возвращается только ответ Консультанта или уточняющий вопрос.
         """
         
-        print("\n🔄 Multi-Model Pipeline Started...")
+        logger.info(f"🔄 Multi-Model Pipeline Started для сессии {session_id}")
         
         # ===== ШАГ 0: ЗАГРУЗКА ИСТОРИИ ДИАЛОГА =====
         conversation_history = self._load_conversation_history(session_id, db)
@@ -647,9 +689,9 @@ class MultiModelAgent:
                 if session.material and not user_context.get("material"):
                     user_context["material"] = session.material
         
-        print(f"   📜 История диалога: {len(conversation_history)} сообщений")
-        print(f"   🖨️  Принтер: {user_context.get('printer_model', 'не указан')}")
-        print(f"   🧪 Материал: {user_context.get('material', 'не указан')}")
+        logger.debug(f"История диалога: {len(conversation_history)} сообщений")
+        logger.debug(f"Принтер: {user_context.get('printer_model', 'не указан')}")
+        logger.debug(f"Материал: {user_context.get('material', 'не указан')}")
         
         # Формируем контекст для Аналитика (включая историю)
         full_context = user_message
@@ -660,17 +702,16 @@ class MultiModelAgent:
             full_context = f"Контекст предыдущего диалога:\n{history_text}\n\nТекущий запрос: {user_message}"
         
         # ===== ШАГ 1: АНАЛИТИК (внутренний) =====
-        print("1️⃣ Analyzer: Анализирую запрос...")
+        logger.info("1️⃣ Analyzer: Анализирую запрос...")
         analyzer_output = await self.call_analyzer(full_context)
-        print(f"   → Цель: {analyzer_output.goal[:80]}...")
-        print(f"   → Подзадач: {len(analyzer_output.subtasks)}")
-        print(f"   → Ключевых слов: {len(analyzer_output.keywords)}")
+        logger.debug(f"Цель: {analyzer_output.goal[:80]}...")
+        logger.debug(f"Подзадач: {len(analyzer_output.subtasks)}, Ключевых слов: {len(analyzer_output.keywords)}")
         
         if not analyzer_output.domain_check:
             return "Извините, ваш запрос выходит за рамки моей компетенции (G-code, 3D-печать, параметры слайсера, механика/электроника принтера). Я могу помочь только с вопросами в этой области."
         
         # ===== ШАГ 2: ПОИСК В KB (на основе ключевых слов от Аналитика + истории) =====
-        print("2️⃣ RAG: Ищу в базе знаний...")
+        logger.info("2️⃣ RAG: Ищу в базе знаний...")
         rag_context = ""
         rag_sources = []
         try:
@@ -685,22 +726,31 @@ class MultiModelAgent:
             if user_context.get("mentioned_issues"):
                 search_query += " " + " ".join(user_context["mentioned_issues"])
             
-            kb_results = await self.rag.search(search_query, top_k=5)
-            rag_context = kb_results.augmented_context if hasattr(kb_results, 'augmented_context') else ""
-            rag_sources = kb_results.sources if hasattr(kb_results, 'sources') else []
-            total_results = kb_results.total_results if hasattr(kb_results, 'total_results') else 0
+            try:
+                kb_results = await retry_async(
+                    lambda: self.rag.search(search_query, top_k=5),
+                    max_attempts=2,
+                    initial_delay=0.5,
+                    exceptions=(Exception,)
+                )
+                rag_context = kb_results.augmented_context if hasattr(kb_results, 'augmented_context') else ""
+                rag_sources = kb_results.sources if hasattr(kb_results, 'sources') else []
+                total_results = kb_results.total_results if hasattr(kb_results, 'total_results') else 0
+            except Exception as e:
+                logger.error(f"Ошибка RAG поиска: {e}", exc_info=True)
+                raise RAGError(f"Не удалось выполнить поиск в базе знаний: {e}") from e
             
             # Добавляем источники в контекст для Консультанта
             if rag_sources:
                 sources_text = "\n".join([f"- {source.get('source', 'unknown')}" for source in rag_sources[:3]])
                 rag_context += f"\n\nИсточники:\n{sources_text}"
-            print(f"   → Найдено {total_results} релевантных документов")
+            logger.info(f"Найдено {total_results} релевантных документов")
         except Exception as e:
-            print(f"   ⚠️ Ошибка RAG: {e}")
+            logger.error(f"Ошибка RAG поиска: {e}", exc_info=True)
             rag_context = ""
         
         # ===== ШАГ 3: КОНСУЛЬТАНТ (единственный, кто общается с пользователем) =====
-        print("3️⃣ Consultant: Готовлю технический ответ...")
+        logger.info("3️⃣ Consultant: Готовлю технический ответ...")
         consultant_output = await self.call_consultant(
             user_message, 
             analyzer_output, 
@@ -708,30 +758,39 @@ class MultiModelAgent:
             user_context,
             conversation_history
         )
-        print(f"   → Краткий вывод: {consultant_output.brief_summary[:80]}...")
+        logger.debug(f"Краткий вывод: {consultant_output.brief_summary[:80]}...")
         
-        # Добавляем источники из RAG в ответ Консультанта
+        # Добавляем источники из RAG в ответ Консультанта (с source_url)
         if rag_sources:
-            consultant_output.sources.extend([
-                source.get('source', 'unknown') 
-                for source in rag_sources[:3]
-            ])
+            for source in rag_sources[:3]:
+                source_name = source.get('source', 'unknown')
+                source_url = source.get('source_url', '')
+                title = source.get('title', '')
+                
+                if source_url:
+                    if title:
+                        consultant_output.sources.append(f"{title} ({source_url})")
+                    else:
+                        consultant_output.sources.append(f"{source_name} ({source_url})")
+                else:
+                    consultant_output.sources.append(source_name)
         
         # ===== ШАГ 3.5: ПРОВЕРКА - НУЖНО ЛИ ЗАДАТЬ ВОПРОС? =====
         should_ask = await self._should_ask_question(analyzer_output, consultant_output)
         if should_ask and len(conversation_history) < 5:  # Задаем вопросы только в начале диалога
             question = await self._generate_clarifying_question(analyzer_output, consultant_output, user_context)
-            print(f"   ❓ Задаю уточняющий вопрос вместо ответа")
+            logger.info(f"❓ Задаю уточняющий вопрос вместо ответа")
             return f"Чтобы дать вам более точную рекомендацию, мне нужно уточнить:\n\n**{question}**\n\nПосле вашего ответа я смогу предоставить конкретные параметры печати и шаги по решению проблемы."
         
         # ===== ШАГ 4: РЕДАКТОР (внутренняя валидация) =====
-        print("4️⃣ Editor: Создаю упрощенную версию (внутренняя валидация)...")
+        logger.debug("4️⃣ Editor: Создаю упрощенную версию (внутренняя валидация)...")
         editor_output = await self.call_editor(consultant_output)
         # Редактор работает внутренне, его вывод не идет пользователю напрямую
         
         # ===== ШАГ 5: ПРОВЕРЯЮЩИЙ (внутренняя валидация) =====
-        print("5️⃣ QA Checker: Оцениваю качество (внутренняя валидация)...")
+        logger.debug("5️⃣ QA Checker: Оцениваю качество (внутренняя валидация)...")
         qa_output = await self.call_qa_checker(consultant_output)
+        logger.debug(f"QA оценки: correctness={qa_output.correctness}, completeness={qa_output.completeness}, clarity={qa_output.clarity}")
         # Проверяющий работает внутренне, его вывод используется для мета-информации
         
         # ===== ФОРМИРОВАНИЕ ФИНАЛЬНОГО ОТВЕТА =====
@@ -754,6 +813,28 @@ class MultiModelAgent:
             for i, item in enumerate(consultant_output.recommended_actions, 1):
                 final_response_parts.append(f"{i}. {item}")
         
+        # Рекомендации проектов (если уместно)
+        if db and session_id:
+            try:
+                from agents.project_recommender.recommender import ProjectRecommender
+                recommender = ProjectRecommender(db)
+                # Получаем информацию о сессии для рекомендаций
+                from data.postgres.models import Session as SessionModel
+                session = db.query(SessionModel).filter(SessionModel.id == session_id).first()
+                if session and session.material:
+                    projects = recommender.recommend_projects(
+                        session.user_id,
+                        difficulty="easy",
+                        material=session.material,
+                        limit=2
+                    )
+                    if projects:
+                        final_response_parts.append("\n**Рекомендуемые проекты для практики:**")
+                        for project in projects:
+                            final_response_parts.append(f"- {project.name} ({project.difficulty})")
+            except Exception as e:
+                print(f"⚠️ Ошибка получения рекомендаций проектов: {e}")
+        
         # Конкретные параметры печати
         if consultant_output.print_parameters:
             final_response_parts.append("\n**Конкретные параметры печати:**")
@@ -767,11 +848,15 @@ class MultiModelAgent:
                 if key not in ["nozzle_temp", "bed_temp", "print_speed"]:
                     final_response_parts.append(f"- {key}: {value}")
         
-        # Источники информации
+        # Источники информации (с ссылками)
         if consultant_output.sources:
             final_response_parts.append("\n**Источники информации:**")
             for source in consultant_output.sources:
-                final_response_parts.append(f"- {source}")
+                # Если source уже содержит URL, просто добавляем
+                if "http" in source:
+                    final_response_parts.append(f"- {source}")
+                else:
+                    final_response_parts.append(f"- {source}")
         
         # Что уточнить
         if consultant_output.what_to_clarify:

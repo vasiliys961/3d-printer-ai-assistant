@@ -86,6 +86,34 @@ streamlit run ui/streamlit_dashboard.py
 uvicorn api.main:app --reload
 ```
 
+## База знаний
+
+Проект включает расширенную базу знаний по 3D-печати:
+
+- **Материалы**: PLA, PETG, ABS, TPU, ASA, PC, Nylon (7 документов)
+- **Troubleshooting**: warping, stringing, layer shift, under/over extrusion, bed adhesion, elephant foot, zits/blobs (8 документов)
+- **Профили принтеров**: Ender 3, Prusa i3, Bamboo Lab X1, Voron, RatRig (5 документов)
+- **G-code команды**: температура, движение, выравнивание стола, продвинутые команды (4 документа)
+- **Калибровка**: bed leveling, flow rate, temperature tower, retraction test, speed test (5 документов)
+- **Настройки слайсеров**: Cura, PrusaSlicer (2 документа)
+
+**Всего: ~32 документа**
+
+Подробнее см. [KNOWLEDGE_BASE.md](KNOWLEDGE_BASE.md)
+
+## Креативные функции
+
+### Режим обучения
+Пошаговые уроки для начинающих и продвинутых пользователей с отслеживанием прогресса.
+
+### Подбор проектов
+Рекомендательная система для выбора проектов для печати на основе навыков пользователя.
+
+### Геймификация
+Система достижений, уровней и таблицы лидеров для мотивации.
+
+Подробнее см. [CREATIVE_FEATURES.md](CREATIVE_FEATURES.md)
+
 ## Структура проекта
 
 ```

@@ -1,11 +1,6 @@
 """Главная точка входа приложения"""
 import asyncio
-import sys
-from loguru import logger
-
-# Настройка логирования
-logger.add("logs/app.log", rotation="10 MB", level="INFO")
-logger.add(sys.stderr, level="INFO")
+from utils.logger import logger
 
 
 async def main():

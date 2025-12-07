@@ -1,0 +1,17 @@
+[
+  {
+    "id": "stringing_001",
+    "title": "Stringing Problem - Hairs Between Parts",
+    "category": "troubleshooting",
+    "problem": "stringing",
+    "content": "Stringing (сопли, нити) - появление тонких нитей пластика между деталями при перемещении сопла.\n\nПричины:\n1. Слишком высокая температура сопла\n2. Недостаточный retraction (откат)\n3. Слишком быстрая скорость retraction\n4. Пластик продолжает течь из сопла при перемещении\n5. Влажный филамент (особенно для PETG, Nylon)\n\nРешения:\n1. Уменьшите температуру сопла на 5-10°C\n2. Увеличьте retraction distance до 4-7 мм (для Bowden) или 1-3 мм (для Direct Drive)\n3. Увеличьте скорость retraction до 40-60 мм/с\n4. Включите функцию \"Retract on layer change\"\n5. Уменьшите скорость перемещения (travel speed) до 100-150 мм/с\n6. Используйте функцию \"Wipe\" или \"Coasting\" в слайсере\n7. Высушите филамент перед печатью (для гигроскопичных материалов)\n\nПараметры для разных принтеров:\n- Bowden: retraction 5-7 мм, скорость 50 мм/с\n- Direct Drive: retraction 1-3 мм, скорость 40 мм/с\n\nПроверка:\n- Используйте тест \"Stringing Test\" для настройки параметров\n- Между деталями не должно быть видимых нитей",
+    "tags": [
+      "common",
+      "retraction",
+      "temperature",
+      "beginner"
+    ],
+    "language": "ru",
+    "source_url": "https://3dtoday.ru/wiki/troubleshooting/stringing/"
+  }
+]

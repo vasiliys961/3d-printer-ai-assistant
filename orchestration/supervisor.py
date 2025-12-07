@@ -23,6 +23,7 @@ from .tools import (
     VisionPipeline,
     HardwareInterface
 )
+from utils.logger import logger
 
 
 class Supervisor:
@@ -280,7 +281,7 @@ class Supervisor:
                 finally:
                     db.close()
             except Exception as e:
-                print(f"Error loading session history: {e}")
+                logger.error(f"Error loading session history: {e}", exc_info=True)
         
         return [SystemMessage(content=SYSTEM_PROMPT)]
     
@@ -367,11 +368,11 @@ class Supervisor:
                     db.commit()
                 except Exception as e:
                     db.rollback()
-                    print(f"Error saving session: {e}")
+                    logger.error(f"Error saving session: {e}", exc_info=True)
                 finally:
                     db.close()
             except Exception as e:
-                print(f"Error in _save_session_history: {e}")
+                logger.error(f"Error in _save_session_history: {e}", exc_info=True)
 
 
 # Создаем глобальный экземпляр

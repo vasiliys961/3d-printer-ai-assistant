@@ -1,0 +1,17 @@
+[
+  {
+    "id": "zits_blobs_001",
+    "title": "Zits and Blobs Problem - Surface Imperfections",
+    "category": "troubleshooting",
+    "problem": "zits_blobs",
+    "content": "Zits and Blobs (прыщи и капли) - небольшие выпуклости на поверхности детали.\n\nПричины:\n1. Переэкструзия\n2. Слишком высокая температура сопла\n3. Проблемы с retraction (недостаточный откат)\n4. Слишком медленная скорость печати внешних периметров\n5. Проблемы с настройками \"Wipe\" и \"Coasting\"\n6. Влажный филамент\n\nРешения:\n1. Уменьшите flow rate до 95-100%\n2. Уменьшите температуру сопла на 5-10°C\n3. Улучшите настройки retraction (увеличьте distance и speed)\n4. Увеличьте скорость печати внешних периметров до 30-40 мм/с\n5. Включите функцию \"Wipe\" в слайсере\n6. Включите функцию \"Coasting\" для уменьшения давления в сопле\n7. Высушите филамент перед печатью\n8. Используйте функцию \"Z-hop\" при перемещении\n\nНастройки в слайсере:\n- Wipe distance: 0.2-0.5 мм\n- Coasting volume: 0.064 мм³\n- Z-hop height: 0.2-0.5 мм\n\nПроверка:\n- Поверхность должна быть гладкой без видимых выпуклостей\n- Особенно важно для видимых поверхностей",
+    "tags": [
+      "common",
+      "surface-quality",
+      "retraction",
+      "intermediate"
+    ],
+    "language": "ru",
+    "source_url": "https://3dtoday.ru/wiki/troubleshooting/zits_blobs/"
+  }
+]

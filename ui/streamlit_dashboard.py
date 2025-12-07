@@ -1,10 +1,21 @@
 """Streamlit Web Dashboard для мониторинга"""
 import streamlit as st
 import asyncio
+import sys
+import os
+import requests
+from pathlib import Path
+
+# Добавляем корневую директорию в путь
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from orchestration.graph import orchestration_graph
 from agents.hardware.tool import hardware_tool
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+from config import API_PORT
+
+API_BASE_URL = f"http://localhost:{API_PORT}"
 
 
 st.set_page_config(
@@ -30,8 +41,12 @@ def main():
         st.header("Навигация")
         page = st.radio(
             "Выберите страницу",
-            ["Мониторинг", "Управление", "Анализ", "База знаний"]
+            ["Мониторинг", "Управление", "Анализ", "База знаний", "История диалогов", "Обучение", "Метрики"]
         )
+        
+        # Выбор пользователя для просмотра данных
+        user_id = st.number_input("User ID", min_value=1, value=1, step=1)
+        st.session_state.user_id = user_id
     
     if page == "Мониторинг":
         show_monitoring()
@@ -41,6 +56,12 @@ def main():
         show_analysis()
     elif page == "База знаний":
         show_knowledge_base()
+    elif page == "История диалогов":
+        show_chat_history()
+    elif page == "Обучение":
+        show_learning_progress()
+    elif page == "Метрики":
+        show_metrics()
 
 
 def show_monitoring():
@@ -204,6 +225,237 @@ def show_knowledge_base():
                     st.json(res.get("metadata", {}))
         else:
             st.warning("Введите запрос для поиска")
+
+
+def show_chat_history():
+    """Страница истории диалогов"""
+    st.header("История диалогов")
+    
+    user_id = st.session_state.get("user_id", 1)
+    
+    # Получаем сессии пользователя через API
+    try:
+        # Используем прямой запрос к БД через импорт (если API недоступен)
+        try:
+            response = requests.get(f"{API_BASE_URL}/sessions", params={"user_id": user_id}, timeout=2)
+            if response.status_code == 200:
+                sessions = response.json().get("sessions", [])
+            else:
+                sessions = []
+        except requests.exceptions.RequestException:
+            # Fallback: используем прямой доступ к БД
+            from data.postgres.database import SessionLocal
+            from data.postgres.models import Session as SessionModel
+            db = SessionLocal()
+            try:
+                db_sessions = db.query(SessionModel).filter(SessionModel.user_id == user_id).all()
+                sessions = [{"id": s.id, "started_at": str(s.started_at), "printer_model": s.printer_model} for s in db_sessions]
+            finally:
+                db.close()
+    except Exception as e:
+        sessions = []
+        st.warning(f"Не удалось подключиться к API: {e}")
+    
+    if sessions:
+        session_ids = [s["id"] for s in sessions]
+        selected_session = st.selectbox("Выберите сессию", session_ids, format_func=lambda x: f"Сессия {x}")
+        
+        if selected_session:
+            # Получаем историю выбранной сессии
+            try:
+                try:
+                    history_response = requests.get(f"{API_BASE_URL}/sessions/{selected_session}/history", timeout=2)
+                    if history_response.status_code == 200:
+                        history_data = history_response.json()
+                        messages = history_data.get("messages", [])
+                    else:
+                        messages = []
+                except requests.exceptions.RequestException:
+                    # Fallback: прямой доступ к БД
+                    from data.postgres.database import SessionLocal
+                    from data.postgres.models import Message as MessageModel
+                    db = SessionLocal()
+                    try:
+                        db_messages = db.query(MessageModel).filter(
+                            MessageModel.session_id == selected_session
+                        ).order_by(MessageModel.created_at).all()
+                        messages = [
+                            {
+                                "role": m.role,
+                                "content": m.content,
+                                "created_at": str(m.created_at)
+                            }
+                            for m in db_messages
+                        ]
+                    finally:
+                        db.close()
+                
+                if messages:
+                    st.subheader(f"История сессии {selected_session}")
+                    st.info(f"Всего сообщений: {len(messages)}")
+                    
+                    # Отображаем сообщения
+                    for msg in messages:
+                        role = msg.get("role", "unknown")
+                        content = msg.get("content", "")
+                        created_at = msg.get("created_at", "")
+                        
+                        if role == "user":
+                            with st.chat_message("user"):
+                                st.write(content)
+                                if created_at:
+                                    st.caption(created_at)
+                        elif role == "assistant":
+                            with st.chat_message("assistant"):
+                                st.markdown(content)
+                                if created_at:
+                                    st.caption(created_at)
+                        elif role == "system":
+                            st.error(f"Система: {content}")
+                else:
+                    st.info("В этой сессии пока нет сообщений")
+            except Exception as e:
+                st.error(f"Ошибка: {e}")
+    else:
+        st.info("Нет доступных сессий для этого пользователя")
+
+
+def show_learning_progress():
+    """Страница прогресса обучения"""
+    st.header("Прогресс обучения")
+    
+    user_id = st.session_state.get("user_id", 1)
+    
+    try:
+        try:
+            response = requests.get(f"{API_BASE_URL}/learning/progress", params={"user_id": user_id}, timeout=2)
+            if response.status_code == 200:
+                progress = response.json()
+            else:
+                progress = {}
+        except requests.exceptions.RequestException:
+            # Fallback: прямой доступ к БД
+            from agents.learning_mode.progress_tracker import ProgressTracker
+            from data.postgres.database import SessionLocal
+            db = SessionLocal()
+            try:
+                tracker = ProgressTracker(db)
+                progress = tracker.get_user_progress(user_id)
+                next_lesson = tracker.get_next_lesson(user_id)
+                if next_lesson:
+                    progress["next_lesson"] = next_lesson
+            finally:
+                db.close()
+        
+        if progress:
+            # Общий прогресс
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Пройдено уроков", len(progress.get("completed_lessons", [])))
+            with col2:
+                st.metric("Всего уроков", progress.get("total_lessons", 0))
+            with col3:
+                st.metric("Прогресс", f"{progress.get('progress_percent', 0)}%")
+            
+            # Прогресс-бар
+            progress_percent = progress.get("progress_percent", 0)
+            st.progress(progress_percent / 100)
+            
+            # Следующий урок
+            next_lesson = progress.get("next_lesson")
+            if next_lesson:
+                st.subheader("Следующий урок")
+                if isinstance(next_lesson, dict):
+                    st.info(f"**{next_lesson.get('title', next_lesson.get('id', ''))}**\n\n{next_lesson.get('description', '')}")
+                else:
+                    st.info(f"**{next_lesson.title}**\n\n{next_lesson.content[:200]}...")
+                if st.button("Начать урок"):
+                    st.success("Урок начат!")
+            else:
+                st.success("🎉 Все уроки пройдены!")
+            
+            # Список пройденных уроков
+            if progress.get("completed_lessons"):
+                st.subheader("Пройденные уроки")
+                for lesson_id in progress.get("completed_lessons", []):
+                    st.success(f"✅ {lesson_id}")
+        else:
+            st.info("Прогресс обучения пока не доступен")
+    except Exception as e:
+        st.error(f"Ошибка: {e}")
+        st.info(f"Убедитесь, что API сервер запущен на порту {API_PORT}")
+
+
+def show_metrics():
+    """Страница метрик производительности"""
+    st.header("Метрики производительности")
+    
+    try:
+        try:
+            response = requests.get(f"{API_BASE_URL}/metrics", timeout=2)
+            if response.status_code == 200:
+                metrics_data = response.json()
+                metrics = metrics_data.get("metrics", {})
+            else:
+                metrics = {}
+        except requests.exceptions.RequestException:
+            # Fallback: используем метрики напрямую
+            from utils.metrics import metrics_collector
+            metrics = metrics_collector.get_stats(limit=100)
+        
+        if metrics:
+            # Основные метрики
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Всего запросов", metrics.get("total_requests", 0))
+            
+            with col2:
+                avg_time = metrics.get("avg_execution_time_ms", 0)
+                st.metric("Среднее время", f"{avg_time:.2f}ms")
+            
+            with col3:
+                avg_llm = metrics.get("avg_llm_calls", 0)
+                st.metric("Среднее LLM вызовов", f"{avg_llm:.2f}")
+            
+            with col4:
+                avg_tokens = metrics.get("avg_tokens_per_request", 0)
+                st.metric("Среднее токенов", f"{avg_tokens:.0f}")
+            
+            # Дополнительные метрики
+            col5, col6 = st.columns(2)
+            with col5:
+                avg_rag = metrics.get("avg_rag_searches", 0)
+                st.metric("Среднее RAG поисков", f"{avg_rag:.2f}")
+            with col6:
+                total_errors = metrics.get("total_errors", 0)
+                st.metric("Всего ошибок", total_errors, delta=None if total_errors == 0 else f"-{total_errors}")
+            
+            # Графики
+            st.subheader("Распределение времени выполнения")
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                x=["Среднее время"],
+                y=[avg_time],
+                name="Среднее время (мс)",
+                marker_color='lightblue'
+            ))
+            fig.update_layout(
+                title="Среднее время выполнения запросов",
+                yaxis_title="Время (мс)",
+                showlegend=False
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Статистика по ошибкам
+            if total_errors > 0:
+                st.warning(f"⚠️ Всего ошибок: {total_errors}")
+                st.info("Проверьте логи в `logs/errors.log` для деталей")
+        else:
+            st.info("Метрики пока не собраны. Выполните несколько запросов к API.")
+    except Exception as e:
+        st.error(f"Ошибка: {e}")
+        st.info("Убедитесь, что API сервер запущен")
 
 
 if __name__ == "__main__":

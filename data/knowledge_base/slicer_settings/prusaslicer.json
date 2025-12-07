@@ -1,0 +1,17 @@
+[
+  {
+    "id": "prusaslicer_001",
+    "title": "PrusaSlicer Settings Guide",
+    "category": "slicer_settings",
+    "slicer": "PrusaSlicer",
+    "content": "Рекомендуемые настройки PrusaSlicer для различных материалов и принтеров.\n\nБазовые настройки для PLA:\n- Layer Height: 0.2 мм (стандарт), 0.15 мм (качество), 0.3 мм (быстро)\n- Perimeters: 2-3\n- Top/Bottom Layers: 4-5\n- Infill: 20% (стандарт)\n- Print Speed: 50-60 мм/с\n- Perimeters Speed: 40-45 мм/с\n- External Perimeters Speed: 25-30 мм/с\n- Travel Speed: 200 мм/с\n- First Layer Speed: 20 мм/с\n- Retraction Length: 0.8-1.2 мм (Direct Drive)\n- Retraction Speed: 35 мм/с\n- Temperature: 210°C\n- Bed Temperature: 60°C\n\nБазовые настройки для PETG:\n- Layer Height: 0.2 мм\n- Print Speed: 40-50 мм/с\n- Perimeters Speed: 30-35 мм/с\n- External Perimeters Speed: 20-25 мм/с\n- Retraction Length: 0.8-1.2 мм\n- Temperature: 240°C\n- Bed Temperature: 80°C\n- Fan Speed: 30-50%\n\nБазовые настройки для ABS:\n- Layer Height: 0.2-0.3 мм\n- Print Speed: 50 мм/с\n- Temperature: 250°C\n- Bed Temperature: 100°C\n- Fan Speed: 0-10%\n\nВажные настройки:\n- Support Material: Organic (Tree) или Grid\n- Brim Width: 5-10 мм\n- Z-hop: 0.2-0.5 мм\n- Wipe: включить\n- Seam Position: Rear или Random\n\nСоветы:\n- Используйте встроенные профили принтеров Prusa\n- Настройте Material Profiles для каждого материала\n- Используйте Print Settings Presets для разных режимов (Quality, Speed, Draft)",
+    "tags": [
+      "slicer",
+      "prusaslicer",
+      "settings",
+      "beginner"
+    ],
+    "language": "ru",
+    "source_url": "https://3dtoday.ru/wiki/slicers/prusaslicer/"
+  }
+]
